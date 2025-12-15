@@ -400,29 +400,25 @@ Clients sign the CAIP-122 message and include it in their response:
 
 ### ENS Identity
 
-**What**: A new optional `ens` extension that allows x402 participants to attach ENS identities to a payment without changing settlement semantics. When present, the extension MUST include the payee's ENS name and MAY include the payer's, along with a small, machine-readable description of which ENS records are relevant for this payment.
+**What**: A new optional `ens` extension that allows x402 participants to attach ENS identities to a payment without changing settlement semantics. When present, any party that includes ENS identity in the extension MUST include its ENS name, and MAY include a small, machine-readable description of which ENS records are relevant for this payment.
 
 **Why**: ENS already acts as a shared, multichain identity layer across Ethereum-native tooling. Many applications and wallets rely on ENS names, text records, and per-network `addr` records to represent users, merchants, and agents. The `ens` extension lets x402 implementations point to that identity surface. Implementations that do not care about ENS can ignore this extension.
 
 **Server PaymentRequired with ENS Extension**:
 
-Servers inject the payee’s ENS identity into the `extensions.ens` object:
+Servers SHOULD populate the `payee` object when including the ENS extension in `PaymentRequired`, and clients MAY populate the `payer` object when echoing or extending the ENS extension in `PaymentPayload`. Servers inject the payee’s ENS identity into the `extensions.ens` object:
 
 ```json
 {
   "extensions": {
     "ens": {
       "info": {
-        "payeeEns": "merchant.eth",
-        "payeeEnsMessage": "merchant with payment preferences and agent for receiving payments",
-        "profile": {
-          "payee": {
-            "ens": "merchant.eth",
-            "ensMessage": "merchant with payment preferences and agent for receiving payments",
-            "records": {
-              "text": ["agent-context", "email", "description", "url"],
-              "data": ["location-credential", "gov-id-credential"]
-            }
+        "payee": {
+          "ens": "merchant.eth",
+          "message": "merchant with payment preferences and agent for receiving payments",
+          "records": {
+            "text": ["agent-context", "email", "description", "url"],
+            "data": ["location-credential", "gov-id-credential"]
           }
         }
       },
@@ -430,60 +426,38 @@ Servers inject the payee’s ENS identity into the `extensions.ens` object:
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "payeeEns": {
-            "type": "string",
-            "description": "ENS name that identifies the payee or merchant"
-          },
-          "payeeEnsMessage": {
-            "type": "string",
-            "description": "Short human-readable context for the payee ENS name"
-          },
-          "payerEns": {
-            "type": ["string", "null"],
-            "description": "ENS name that identifies the payer, if available"
-          },
-          "payerEnsMessage": {
-            "type": ["string", "null"],
-            "description": "Short human-readable context for the payer ENS name, if available"
-          },
-          "profile": {
+          "payee": {
             "type": "object",
             "properties": {
-              "payee": {
-                "type": "object",
-                "properties": {
-                  "ens": { "type": "string" },
-                  "ensMessage": { "type": "string" },
+              "ens": { "type": "string" },
+              "message": { "type": "string" },
               "records": {
-                    "type": "object",
-                    "properties": {
-                      "text": { "type": "array", "items": { "type": "string" } },
-                      "data": { "type": "array", "items": { "type": "string" } }
-                    }
-                  }
-                },
-                "required": []
-              },
-              "payer": {
                 "type": "object",
                 "properties": {
-                  "ens": { "type": "string" },
-                  "ensMessage": { "type": "string" },
-                  "records": {
-                    "type": "object",
-                    "properties": {
-                      "text": { "type": "array", "items": { "type": "string" } },
-                      "data": { "type": "array", "items": { "type": "string" } }
-                    }
-                  }
-                },
-                "required": []
+                  "text": { "type": "array", "items": { "type": "string" } },
+                  "data": { "type": "array", "items": { "type": "string" } }
+                }
               }
             },
-            "required": []
+            "required": ["ens"]
+          },
+          "payer": {
+            "type": "object",
+            "properties": {
+              "ens": { "type": "string" },
+              "message": { "type": "string" },
+              "records": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "array", "items": { "type": "string" } },
+                  "data": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "required": ["ens"]
           }
         },
-        "required": ["payeeEns"]
+        "required": ["payee"]
       }
     }
   }
@@ -499,26 +473,20 @@ Clients echo the `ens` extension and may add their own ENS identity when constru
   "extensions": {
     "ens": {
       "info": {
-        "payeeEns": "merchant.eth",
-        "payeeEnsMessage": "merchant with payment preferences and agent for receiving payments",
-        "payerEns": "customer-agent-name.eth",
-        "payerEnsMessage": "a service agent of customer-name.eth, with delegated credentials",
-        "profile": {
-          "payee": {
-            "ens": "merchant.eth",
-            "ensMessage": "merchant with payment preferences and agent for receiving payments",
-            "records": {
-              "text": ["agent-context", "email", "description", "url"],
-              "data": ["location-credential", "gov-id-credential"]
-            }
-          },
-          "payer": {
-            "ens": "customer-agent-name.eth",
-            "ensMessage": "a service agent of customer-name.eth, with delegated credentials",
-            "records": {
-              "text": ["agent-context", "email", "description", "url"],
-              "data": ["parent-account", "delegate-certificate"]
-            }
+        "payee": {
+          "ens": "merchant.eth",
+          "message": "merchant with payment preferences and agent for receiving payments",
+          "records": {
+            "text": ["agent-context", "email", "description", "url"],
+            "data": ["location-credential", "gov-id-credential"]
+          }
+        },
+        "payer": {
+          "ens": "customer-agent-name.eth",
+          "message": "a service agent of customer-name.eth, with delegated credentials",
+          "records": {
+            "text": ["agent-context", "email", "description", "url"],
+            "data": ["parent-account", "delegate-certificate"]
           }
         }
       },
@@ -526,45 +494,38 @@ Clients echo the `ens` extension and may add their own ENS identity when constru
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "payeeEns": { "type": "string" },
-          "payeeEnsMessage": { "type": "string" },
-          "payerEns": { "type": ["string", "null"] },
-          "payerEnsMessage": { "type": ["string", "null"] },
-          "profile": {
+          "payee": {
             "type": "object",
             "properties": {
-              "payee": {
+              "ens": { "type": "string" },
+              "message": { "type": "string" },
+              "records": {
                 "type": "object",
                 "properties": {
-                  "ens": { "type": "string" },
-                  "ensMessage": { "type": "string" },
-                  "records": {
-                    "type": "object",
-                    "properties": {
-                      "text": { "type": "array", "items": { "type": "string" } },
-                      "data": { "type": "array", "items": { "type": "string" } }
-                    }
-                  }
-                }
-              },
-              "payer": {
-                "type": "object",
-                "properties": {
-                  "ens": { "type": "string" },
-                  "ensMessage": { "type": "string" },
-                  "records": {
-                    "type": "object",
-                    "properties": {
-                      "text": { "type": "array", "items": { "type": "string" } },
-                      "data": { "type": "array", "items": { "type": "string" } }
-                    }
-                  }
+                  "text": { "type": "array", "items": { "type": "string" } },
+                  "data": { "type": "array", "items": { "type": "string" } }
                 }
               }
-            }
+            },
+            "required": ["ens"]
+          },
+          "payer": {
+            "type": "object",
+            "properties": {
+              "ens": { "type": "string" },
+              "message": { "type": "string" },
+              "records": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "array", "items": { "type": "string" } },
+                  "data": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "required": ["ens"]
           }
         },
-        "required": ["payeeEns"]
+        "required": ["payee"]
       }
     }
   }
@@ -574,7 +535,7 @@ Clients echo the `ens` extension and may add their own ENS identity when constru
 **Semantics**:
 
 - The `ens` extension is informational and can be ignored by implementations that do not care about ENS.
-- Implementations that do care about ENS can use `payeeEns` and `payerEns` as multichain identities, and use `profile.*` to decide which ENS text and data records to query for additional context.
+- Implementations that care about ENS can treat `info.payee` and `info.payer` as the canonical ENS identities for each party, and use their `records.text` and `records.data` arrays as optional hints about which ENS records to look up for additional context.
 
 ## Facilitator
 
