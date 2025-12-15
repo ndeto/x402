@@ -466,7 +466,7 @@ Servers SHOULD populate the `payee` object when including the ENS extension in `
 
 **Client PaymentPayload with ENS Extension**:
 
-Clients echo the `ens` extension and may add their own ENS identity when constructing the `PaymentPayload`:
+Clients MUST echo the `ens` extension's `info.payee` exactly as received from `PaymentRequired`, and MAY append their own `info.payer` object when constructing the `PaymentPayload`. Clients MUST NOT modify or remove any fields under `info.payee` that were provided by the server:
 
 ```json
 {
@@ -536,6 +536,11 @@ Clients echo the `ens` extension and may add their own ENS identity when constru
 
 - The `ens` extension is informational and can be ignored by implementations that do not care about ENS.
 - Implementations that care about ENS can treat `info.payee` and `info.payer` as the canonical ENS identities for each party, and use their `records.text` and `records.data` arrays as optional hints about which ENS records to look up for additional context.
+- When constructing a `PaymentPayload`, clients MUST echo `extensions.ens.info.payee` exactly as received in `PaymentRequired` (including any unknown fields), MAY append `extensions.ens.info.payer`, and MUST NOT delete or overwrite any server-provided `info.payee` fields.
+- The `payee` object describes the party that is receiving payment for the gated resource (for example, the merchant or service behind the `payTo` recipient), while the `payer` object describes the party that is authorizing or sending the payment (for example, the client wallet, account, or agent).
+- ENS identities advertised in this extension MUST NOT be treated as authoritative payment routing information or settlement targets; settlement and verification MUST continue to rely on `payTo`, the selected scheme, and the underlying network semantics.
+- ENS names, messages, and records carried in this extension are informational hints only and MUST NOT, by themselves, be treated as proof of control, ownership, or authorization for either party.
+- Implementations that need to rely on ENS identities for authentication or stronger trust guarantees SHOULD bind those identities to a verified signal, such as a SIWx (CAIP-122) assertion or ENS on-chain resolution combined with application-specific trust checks.
 
 ## Facilitator
 
