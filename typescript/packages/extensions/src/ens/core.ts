@@ -1,13 +1,17 @@
 import Ajv from "ajv/dist/2020";
 import type { ErrorObject } from "ajv";
 import type { EnsExtension, EnsInfo } from "./types";
+import { getEnsSchema } from "./types";
 
-export interface ExtensionValidationResult {
+/**
+ * Minimal result returned from runtime ENS schema validation.
+ */
+export interface EnsExtensionValidationResult {
   valid: boolean;
   errors?: string[];
 }
 
-export interface EnsExtensionDeclaration extends ExtensionValidationResult {
+export interface EnsExtensionDeclaration extends EnsExtensionValidationResult {
   /**
    * The constructed ENS extension when validation succeeds.
    *
@@ -20,7 +24,7 @@ export interface EnsExtensionDeclaration extends ExtensionValidationResult {
  * Converts Ajv error objects into readable strings for callers.
  *
  * @param errors - Ajv validation errors to format
- * @returns Array of human-readable error messages (or a default entry)
+ * @returns Array of human-readable error messages
  */
 const formatValidationErrors = (errors: ErrorObject[] | null | undefined): string[] => {
   if (!errors || errors.length === 0) {
@@ -41,43 +45,7 @@ const formatValidationErrors = (errors: ErrorObject[] | null | undefined): strin
  */
 export const buildEnsExtension = (info: EnsInfo): EnsExtension => ({
   info,
-  schema: {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    properties: {
-      payee: {
-        type: "object",
-        properties: {
-          ens: { type: "string" },
-          message: { type: "string" },
-          records: {
-            type: "object",
-            properties: {
-              text: { type: "array", items: { type: "string" } },
-              data: { type: "array", items: { type: "string" } },
-            },
-          },
-        },
-        required: ["ens"],
-      },
-      payer: {
-        type: "object",
-        properties: {
-          ens: { type: "string" },
-          message: { type: "string" },
-          records: {
-            type: "object",
-            properties: {
-              text: { type: "array", items: { type: "string" } },
-              data: { type: "array", items: { type: "string" } },
-            },
-          },
-        },
-        required: ["ens"],
-      },
-    },
-    required: ["payee"],
-  },
+  schema: getEnsSchema(),
 });
 
 /**
@@ -86,7 +54,7 @@ export const buildEnsExtension = (info: EnsInfo): EnsExtension => ({
  * @param extension - The ENS extension containing `info` and `schema`
  * @returns Validation result indicating whether `info` matches `schema`
  */
-export function validateEnsExtension(extension: EnsExtension): ExtensionValidationResult {
+export function validateEnsExtension(extension: EnsExtension): EnsExtensionValidationResult {
   try {
     const ajv = new Ajv({ strict: false, allErrors: true });
     const validate = ajv.compile(extension.schema);
@@ -112,7 +80,7 @@ export function validateEnsExtension(extension: EnsExtension): ExtensionValidati
  * Primary helper to construct an ENS extension from an `EnsInfo` payload and
  * validate it against the attached JSON Schema.
  *
- * @param info - ENS identity information for payee (and optional payer)
+ * @param info - ENS identity information
  * @returns Validation result including the constructed extension when valid
  */
 export function declareEnsExtension(info: EnsInfo): EnsExtensionDeclaration {

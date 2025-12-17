@@ -1,24 +1,12 @@
-#
 # ENS Identity Extension
 
-**What**: Optional `ens` metadata that lets x402 participants attach ENS identities to a payment
-without changing settlement semantics. Any party that includes ENS identity MUST provide its ENS
-name and MAY include hints pointing to relevant ENS records.
+The ENS extension carries optional metadata so x402 participants can attach ENS identities to a payment without changing settlement semantics. Any party that includes ENS identity MUST provide its ENS name and MAY include hints pointing to relevant ENS records. 
 
-**Why**: ENS already acts as a multichain identity layer inside Ethereum tooling. Many apps and
-wallets rely on ENS names, text records, and per-network `addr` records to represent merchants,
-customers, and agents. The `ens` extension lets x402 reuse that surface. Implementations that do
-not care about ENS can ignore the extension entirely.
-
-## Extension Identifier
-
-```
-ens
-```
+ENS already acts as a multichain identity layer across Ethereum tooling—many apps and wallets rely on ENS names, text records, and per-network `addr` records to represent merchants, customers, and agents—so the `ens` extension simply reuses that surface. Clients or servers that do not care about ENS can ignore the extension entirely.
 
 ## Server `PaymentRequired` example
 
-Servers SHOULD populate `info.payee` when advertising the ENS extension and MAY omit `info.payer`.
+Servers SHOULD populate `info.payee` whenever they advertise the ENS extension in `PaymentRequired`. The snippet below shows a resource responding to a paymentless request with a `PaymentRequired` response (HTTP 402) and including its ENS identity (name, optional message, and the records it believes are relevant). `info.payer` is typically omitted at this stage because the server doesn’t know the client identity yet; it’s the client’s job to attach `info.payer` when it constructs the `PaymentPayload`.
 
 ```json
 {
@@ -27,7 +15,7 @@ Servers SHOULD populate `info.payee` when advertising the ENS extension and MAY 
       "info": {
         "payee": {
           "ens": "merchant.eth",
-          "message": "merchant with payment preferences and agent for receiving payments",
+          "message": "merchant identity with supporting KYC/KYB records",
           "records": {
             "text": ["agent-context", "email", "description", "url"],
             "data": ["location-credential", "gov-id-credential"]
@@ -52,7 +40,7 @@ submitting the payment.
       "info": {
         "payee": {
           "ens": "merchant.eth",
-          "message": "merchant with payment preferences and agent for receiving payments",
+          "message": "merchant identity with supporting KYC/KYB records",
           "records": {
             "text": ["agent-context", "email", "description", "url"],
             "data": ["location-credential", "gov-id-credential"]
@@ -60,7 +48,7 @@ submitting the payment.
         },
         "payer": {
           "ens": "customer-agent-name.eth",
-          "message": "a service agent of customer-name.eth, with delegated credentials",
+          "message": "customer agent identity with verification records referenced below",
           "records": {
             "text": ["agent-context", "email", "description", "url"],
             "data": ["parent-account", "delegate-certificate"]
@@ -124,13 +112,34 @@ submitting the payment.
   fields, and MAY append `info.payer`.
 - Never treat ENS identities as settlement targets; `payTo`, scheme, and network rules still govern
   payment routing.
-- ENS data is not proof of ownership or authorization. Bind to a stronger assertion (e.g., SIWx) if
-  your use case depends on verified ENS control.
+- ENS extension data is not proof of ownership or authorization.
 
 ## Runtime helpers
 
-See `core.ts` for the builder/validator helpers:
+See `core.ts` for the builder/validator helper. In most cases you only need:
 
-- `buildEnsExtension(info)` – attach the JSON Schema to an `EnsInfo` payload.
-- `declareEnsExtension(info)` – build and validate in one step, returning `extension` or errors.
-- `validateEnsExtension(extension)` – validate an already constructed extension.
+- `declareEnsExtension(info)` – builds the extension and validates it, returning `{ valid, errors, extension }`.
+
+### Example
+
+```ts
+import { declareEnsExtension } from "@x402/extensions/ens";
+
+const result = declareEnsExtension({
+  payee: {
+    ens: "merchant.eth",
+    message: "merchant identity with KYC hints",
+    records: {
+      text: ["kyc-provider", "support-email"],
+      data: ["kyc-credential", "aml-credential"],
+    },
+  },
+});
+
+if (!result.valid || !result.extension) {
+  console.error("Invalid ENS extension:", result.errors);
+  throw new Error("Failed to build ENS extension");
+}
+
+const ensExtension = result.extension;
+```

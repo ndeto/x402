@@ -16,9 +16,10 @@ export interface EnsDemoServerHandle {
 export interface EnsDemoServerOptions {
   port?: number;
   facilitatorUrl?: string;
-  ensPayee?: string;
   evmAddress?: `0x${string}`;
 }
+
+const ensPayee = "merchant.eth";
 
 export async function startEnsDemoServer(
   options: EnsDemoServerOptions = {},
@@ -29,9 +30,8 @@ export async function startEnsDemoServer(
   }
 
   const facilitatorUrl =
-    options.facilitatorUrl ?? process.env.FACILITATOR_URL ?? "https://x402.org/facilitator";
-  const ensPayee = options.ensPayee ?? process.env.ENS_PAYEE ?? "merchant.eth";
-  const port = options.port ?? Number(process.env.ENS_SERVER_PORT || 4022);
+    options.facilitatorUrl ?? "https://x402.org/facilitator";
+  const port = options.port ?? Number( 4022);
 
   // Initialize core x402 resource server and HTTP adapter
   const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
@@ -43,7 +43,7 @@ export async function startEnsDemoServer(
   const ensDeclaration = declareEnsExtension({
     payee: {
       ens: ensPayee,
-      message: "KYC-verified merchant with payment preferences and credentials",
+      message: "Merchant identity with supporting KYC/KYB records",
       records: {
         text: ["kyc-provider", "kyc-scope", "support-email"],
         data: ["kyc-credential", "aml-credential"],
@@ -77,6 +77,7 @@ export async function startEnsDemoServer(
 
   // Minimal Express app scoped to this example's payment endpoint.
   const app = express();
+  // @ts-ignore
   app.use(paymentMiddleware(routes, resourceServer));
 
   // Protected resource handler; x402 middleware gate keeps before this executes.

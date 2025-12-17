@@ -83,7 +83,7 @@ Increment `x402Version` to `2`.
         /* CAIP-122 / Sign-In-With-X info per schema */
       },
       "schema": { /* JSON Schema */ }
-    },
+    }
   }
 }
 ```

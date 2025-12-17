@@ -10,17 +10,22 @@ import { startEnsDemoServer } from "./server";
 
 config();
 
+/**
+ * ENS demo flow:
+ * 1. Start the bundled resource server (provides ENS payee info in PaymentRequired).
+ * 2. Request the protected endpoint without payment to obtain requirements + server ENS data.
+ * 3. Attach client (payer) ENS identity to the extension and send the payment payload.
+ * 4. Validate that the final payload still matches the ENS schema and stop the demo server.
+ */
 const evmPrivateKey = process.env.EVM_PRIVATE_KEY as `0x${string}`;
-const baseURL = process.env.RESOURCE_SERVER_URL || "http://localhost:4022";
-const endpointPath = process.env.ENDPOINT_PATH || "/kyc";
-const url = `${baseURL}${endpointPath}`;
-
-const payeeEns = process.env.ENS_PAYEE || "merchant.eth";
-const payerEns = process.env.ENS_PAYER || "customer-agent-name.eth";
+const url = process.env.RESOURCE_SERVER_URL || "http://localhost:4022/kyc";
 
 let server: EnsDemoServerHandle | undefined;
 
 async function main(): Promise<void> {
+  const payeeEns = "merchant.eth";
+  const payerEns = "customer-agent-name.eth";
+
   console.log("\nENS Identity Extension Example\n");
   console.log(`Using resource server URL: ${url}`);
   console.log(`Using payee ENS: ${payeeEns}`);
@@ -31,6 +36,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Spin up the local resource server that advertises ENS payee info.
   console.log("Starting local ENS demo server...");
   server = await startEnsDemoServer();
 
@@ -40,7 +46,7 @@ async function main(): Promise<void> {
   const selectPayment = (_version: number, requirements: PaymentRequirements[]) => requirements[0];
 
   const client = new x402Client(selectPayment).register("eip155:*", new ExactEvmScheme(evmSigner));
-  console.log("✅ x402 client ready\n");
+  console.log("x402 client ready\n");
 
   const payerIdentity = {
     ens: payerEns,
@@ -50,8 +56,6 @@ async function main(): Promise<void> {
       data: ["parent-account", "delegate-certificate"],
     },
   };
-
-  let ensExtension: EnsExtension | undefined;
 
   // Step 1: Make initial request without payment.
   console.log(`\nMaking initial request to: ${url}\n`);
@@ -80,13 +84,9 @@ async function main(): Promise<void> {
 
     const ensProvidedByServer = paymentRequired.extensions?.[ENS];
     if (ensProvidedByServer && typeof ensProvidedByServer === "object") {
-      const { payee, payer } = (ensProvidedByServer as EnsExtension).info;
+      const { payee } = (ensProvidedByServer as EnsExtension).info;
       console.log("\nServer provided ENS extension in PaymentRequired:");
       console.log("  payee:", payee);
-      if (payer) {
-        console.log("  payer:", payer);
-      }
-      ensExtension = ensProvidedByServer as EnsExtension;
     } else {
       console.log("\nNo ENS extension present in PaymentRequired (server may not advertise ENS).");
     }
@@ -95,21 +95,22 @@ async function main(): Promise<void> {
     console.log("\nCreating payment payload with x402 client...\n");
     const paymentPayload = await client.createPaymentPayload(paymentRequired);
 
-    if (!ensExtension) {
+    const currentEnsExtension = paymentPayload.extensions?.[ENS];
+    if (!currentEnsExtension || typeof currentEnsExtension !== "object") {
       throw new Error("Server did not provide an ENS extension; cannot demonstrate ENS echo.");
     }
 
     const ensPayloadExtension: EnsExtension = {
-      ...ensExtension,
+      ...(currentEnsExtension as EnsExtension),
       info: {
-        ...ensExtension.info,
+        ...(currentEnsExtension as EnsExtension).info,
         payer: payerIdentity,
       },
     };
 
     // Attach ENS extension to the PaymentPayload.extensions.
     paymentPayload.extensions = {
-      ...(paymentPayload.extensions ?? {}),
+      ...paymentPayload.extensions,
       [ENS]: ensPayloadExtension,
     };
 
@@ -120,11 +121,8 @@ async function main(): Promise<void> {
     // Step 4: Validate the ENS extension in the final payload (should still be valid).
     const ensFromPayload = paymentPayload.extensions?.[ENS];
     if (ensFromPayload && typeof ensFromPayload === "object") {
-      const ensValidation = validateEnsExtension(
-        ensFromPayload as Parameters<typeof validateEnsExtension>[0],
-      );
       console.log("\nENS extension validation (from PaymentPayload):");
-      console.log(ensValidation);
+      console.log(validateEnsExtension(ensFromPayload as EnsExtension));
     }
 
     console.log("\n✅ ENS identity successfully echoed in PaymentPayload extensions.");

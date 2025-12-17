@@ -15,7 +15,7 @@ describe("ENS Identity Extension", () => {
     const info: EnsInfo = {
       payee: {
         ens: "merchant.eth",
-        message: "merchant with payment preferences and agent for receiving payments",
+        message: "merchant identity with supporting KYC/KYB records",
         records: {
           text: ["email", "description", "url"],
           data: ["location-credential", "gov-id-credential"],
@@ -24,12 +24,6 @@ describe("ENS Identity Extension", () => {
     };
 
     const extension = buildEnsExtension(info);
-
-    // Logging for debugging: show input and resulting extension shape
-    // eslint-disable-next-line no-console
-    console.log("ENS payee-only info:", info);
-    // eslint-disable-next-line no-console
-    console.log("ENS payee-only extension:", extension);
 
     expect(extension.info).toEqual(info);
     expect(extension.schema.$schema).toBe("https://json-schema.org/draft/2020-12/schema");
@@ -42,7 +36,7 @@ describe("ENS Identity Extension", () => {
     const info: EnsInfo = {
       payee: {
         ens: "merchant.eth",
-        message: "merchant with payment preferences and agent for receiving payments",
+        message: "merchant identity with supporting KYC/KYB records",
         records: {
           text: ["agent-context", "email", "description", "url"],
           data: ["location-credential", "gov-id-credential"],
@@ -50,7 +44,7 @@ describe("ENS Identity Extension", () => {
       },
       payer: {
         ens: "customer-agent-name.eth",
-        message: "a service agent of customer-name.eth, with delegated credentials",
+        message: "customer agent identity with verification records referenced below",
         records: {
           text: ["agent-context", "email", "description", "url"],
           data: ["parent-account", "delegate-certificate"],
@@ -59,12 +53,6 @@ describe("ENS Identity Extension", () => {
     };
 
     const extension = buildEnsExtension(info);
-
-    // Logging for debugging: show input and resulting extension shape
-    // eslint-disable-next-line no-console
-    console.log("ENS payee+payer info:", info);
-    // eslint-disable-next-line no-console
-    console.log("ENS payee+payer extension:", extension);
 
     expect(extension.info).toEqual(info);
     expect(extension.schema.properties.payer).toBeDefined();

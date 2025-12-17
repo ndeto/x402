@@ -1,10 +1,15 @@
 # ENS Identity Extension Example
 
-This example demonstrates how to construct and inspect the x402 `ens` extension using the shared `@x402/extensions` package. It does **not** change payment routing or settlement semantics— it simply shows how to attach optional ENS identity hints for the payee and (optionally) the payer within `PaymentRequired` / `PaymentPayload`.
+This example demonstrates how to construct and utilize the x402 `ens` extension using the shared `@x402/extensions` package. It does **not** change payment routing or settlement semantics— it simply shows how to attach optional ENS identity hints for the payee and (optionally) the payer within `PaymentRequired` / `PaymentPayload`. The flow is:
+
+1. Start the local resource server (which advertises payee ENS info).
+2. Hit the protected `/kyc` route without payment to receive `PaymentRequired` + server ENS data.
+3. Attach a payer ENS profile to the extension and resend the request with a valid `PaymentPayload`.
+4. Validate that the ENS extension in the final payload still matches the schema and exit.
 
 ## Setup
 
-From the repo root:
+From the x402 repo root:
 
 ```bash
 cd examples/typescript
@@ -21,8 +26,6 @@ Edit `.env` and set the required values:
 | `EVM_PRIVATE_KEY`         | Client private key used by the x402 SDK                                             | Yes      |
 | `EVM_ADDRESS`             | Required for the bundled demo server (always used in this example)                  | Yes      |
 | `RESOURCE_SERVER_URL`     | Override to point at your own resource server (defaults to the bundled demo server) | Optional |
-| `ENS_PAYEE`               | Payee ENS identity advertised by the example server (defaults to `merchant.eth`)    | Optional |
-| `ENS_PAYER`               | Payer ENS identity attached by the client when echoing the extension                 | Optional |
 
 ## Running the example
 

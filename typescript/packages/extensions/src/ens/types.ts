@@ -64,44 +64,47 @@ export interface EnsInfo {
  * Only the `info` structure has protocol semantics; `schema` exists to allow
  * validation and introspection.
  */
-export interface EnsExtension {
-  info: EnsInfo;
+export const ENS_SCHEMA = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  properties: {
+    payee: {
+      type: "object",
+      properties: {
+        ens: { type: "string" },
+        message: { type: "string" },
+        records: {
+          type: "object",
+          properties: {
+            text: { type: "array", items: { type: "string" } },
+            data: { type: "array", items: { type: "string" } },
+          },
+        },
+      },
+      required: ["ens"],
+    },
+    payer: {
+      type: "object",
+      properties: {
+        ens: { type: "string" },
+        message: { type: "string" },
+        records: {
+          type: "object",
+          properties: {
+            text: { type: "array", items: { type: "string" } },
+            data: { type: "array", items: { type: "string" } },
+          },
+        },
+      },
+      required: ["ens"],
+    },
+  },
+  required: ["payee"],
+} as const;
 
-  schema: {
-    $schema: "https://json-schema.org/draft/2020-12/schema";
-    type: "object";
-    properties: {
-      payee: {
-        type: "object";
-        properties: {
-          ens: { type: "string" };
-          message: { type: "string" };
-          records: {
-            type: "object";
-            properties: {
-              text: { type: "array"; items: { type: "string" } };
-              data: { type: "array"; items: { type: "string" } };
-            };
-          };
-        };
-        required: ["ens"];
-      };
-      payer: {
-        type: "object";
-        properties: {
-          ens: { type: "string" };
-          message: { type: "string" };
-          records: {
-            type: "object";
-            properties: {
-              text: { type: "array"; items: { type: "string" } };
-              data: { type: "array"; items: { type: "string" } };
-            };
-          };
-        };
-        required: ["ens"];
-      };
-    };
-    required: ["payee"];
-  };
-}
+export type EnsExtension = {
+  info: EnsInfo;
+  schema: typeof ENS_SCHEMA;
+};
+
+export const getEnsSchema = (): EnsExtension["schema"] => JSON.parse(JSON.stringify(ENS_SCHEMA));

@@ -6,7 +6,7 @@ export { ENS, type EnsInfo, type EnsParty, type EnsRecords, type EnsExtension } 
 export {
   buildEnsExtension,
   validateEnsExtension,
-  type ExtensionValidationResult,
+  type EnsExtensionValidationResult,
   declareEnsExtension,
   type EnsExtensionDeclaration,
 } from "./core";
