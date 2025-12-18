@@ -1,11 +1,15 @@
 # ENS Identity Extension Example
 
-This example demonstrates how to construct and utilize the x402 `ens` extension using the shared `@x402/extensions` package. It does **not** change payment routing or settlement semantics— it simply shows how to attach optional ENS identity hints for the payee and (optionally) the payer within `PaymentRequired` / `PaymentPayload`. The flow is:
+This example demonstrates how to construct and utilize the x402 `ens` extension using the shared `@x402/extensions` package. A local resource server acts as the merchant (advertising its ENS identity in `PaymentRequired`) and the client acts as the payer (echoing that ENS data and adding its own identity before sending a `PaymentPayload`). 
 
-1. Start the local resource server (which advertises payee ENS info).
-2. Hit the protected `/kyc` route without payment to receive `PaymentRequired` + server ENS data.
-3. Attach a payer ENS profile to the extension and resend the request with a valid `PaymentPayload`.
-4. Validate that the ENS extension in the final payload still matches the schema and exit.
+Settlement semantics remain unchanged; the example focuses on how ENS identity metadata propagates through the protocol. Consistent with the extension rules, the client echoes the server-provided payee fields verbatim and only appends payer metadata.
+
+End-to-end sequence:
+
+1. The script launches a bundled resource server, which exposes `/kyc` and advertises the merchant ENS profile.
+2. An unauthenticated request is issued and `PaymentRequired` is returned with the server’s ENS metadata.
+3. The payer ENS profile is attached to the extension, the payment payload is submitted, and the server observes the echoed data.
+4. Validate that the ENS extension still matches the schema and shut down the demo server.
 
 ## Setup
 
@@ -16,7 +20,7 @@ cd examples/typescript
 pnpm install
 pnpm build        # builds the workspace packages (including @x402/extensions)
 cd clients/ens-extension
-cp .env-local .env
+cp .env.example .env
 ```
 
 Edit `.env` and set the required values:
@@ -29,18 +33,14 @@ Edit `.env` and set the required values:
 
 ## Running the example
 
-From this directory you have two options:
-
-### Bundled demo server (default)
-
-The example launches a local demo server on `http://localhost:4022`, exercises the ENS extension,
-and shuts the server down when the flow finishes. Provide `EVM_PRIVATE_KEY` and `EVM_ADDRESS`, then
-run:
+By default the script launches the bundled demo server on `http://localhost:4022`, exercises the ENS extension, and shuts the server down after the validation step. Execution requires `EVM_PRIVATE_KEY` and `EVM_ADDRESS`. The example can then be started with:
 
 ```bash
 pnpm dev
 ```
 
-If you want to target your own resource server, set `RESOURCE_SERVER_URL` (and `ENDPOINT_PATH` if necessary)
-before running the same command—the example will use the URL you provide instead of starting the demo server.
-`pnpm dev:e2e` simply rebuilds `@x402/extensions` and then runs `pnpm dev` with the current environment.
+To target an external resource server instead of the bundled instance, set `RESOURCE_SERVER_URL` before running the same command. The client then bypasses the embedded server and connects to the configured URL. `pnpm dev:e2e` rebuilds `@x402/extensions` and then executes `pnpm dev` using the current environment.
+
+## Verifying ENS identities
+
+The example demonstrates data exchange only; client implementations MAY perform verification. Verification can be performed using the [ENSIP-19](https://docs.ens.domains/ensip/19/) primary-name workflow by resolving the `payTo` address via reverse lookup, confirming that the returned primary name matches the advertised `info.payee.ens`, and then resolving that name forward to ensure it maps back to the same address.

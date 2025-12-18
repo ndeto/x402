@@ -1,12 +1,12 @@
 # ENS Identity Extension
 
-This optional extension lets x402 participants attach ENS identities to a payment without changing settlement semantics. Any party that includes ENS identity MUST provide its ENS name and MAY include hints pointing to relevant ENS records. 
+This optional extension enables x402 participants to attach ENS identity metadata to a payment without changing settlement semantics. Any party that advertises an ENS identity MUST provide its ENS name and MAY enumerate the relevant ENS record keys. Clients that receive an ENS extension MUST echo the server-supplied fields verbatim when constructing a `PaymentPayload`, and MAY append their own payer metadata without altering the payee entry.
 
-ENS already acts as a multichain identity layer across Ethereum tooling—many apps and wallets rely on ENS names, text records, and per-network `addr` records to represent merchants, customers, and agents—so the `ens` extension simply reuses that surface. Clients or servers that do not care about ENS can ignore the extension entirely.
+ENS already acts as a multichain identity layer across Ethereum tooling. Many applications and wallets rely on ENS names, text records, and per-network `addr` records to represent merchants, customers, and agents, so the `ens` extension simply reuses that surface. Implementations MAY ignore the extension entirely when ENS metadata is not needed.
 
 ## Server `PaymentRequired` example
 
-Servers SHOULD populate `info.payee` whenever they advertise the ENS extension in `PaymentRequired`. The snippet below shows a resource responding to a paymentless request with a `PaymentRequired` response (HTTP 402) and including its ENS identity (name, optional message, and the records it believes are relevant). `info.payer` is typically omitted at this stage because the server doesn’t know the client identity yet; it’s the client’s job to attach `info.payer` when it constructs the `PaymentPayload`.
+Servers SHOULD populate `info.payee` whenever they advertise the ENS extension in `PaymentRequired`. The snippet below illustrates a `PaymentRequired` response (HTTP 402) to an unauthenticated request, including the server’s ENS identity (`info.payee.ens`, optional message, and record references). The client may attach `info.payer` later when constructing the `PaymentPayload`.
 
 ```json
 {
@@ -22,7 +22,9 @@ Servers SHOULD populate `info.payee` whenever they advertise the ENS extension i
           }
         }
       },
-      "schema": { /* see JSON Schema below */ }
+      "schema": {
+        /* see JSON Schema below */
+      }
     }
   }
 }
@@ -30,8 +32,7 @@ Servers SHOULD populate `info.payee` whenever they advertise the ENS extension i
 
 ## Client `PaymentPayload` example
 
-Clients MUST echo `info.payee` exactly as received and MAY append their own `info.payer` entry when
-submitting the payment.
+Clients MUST echo `info.payee` exactly as received and MAY append their own `info.payer` entry when submitting the payment.
 
 ```json
 {
@@ -55,13 +56,15 @@ submitting the payment.
           }
         }
       },
-      "schema": { /* see JSON Schema below */ }
+      "schema": {
+        /* see JSON Schema below */
+      }
     }
   }
 }
 ```
 
-## ENS JSON Schema (`info`)
+## ENS JSON Schema
 
 ```json
 {
@@ -105,30 +108,32 @@ submitting the payment.
 
 ## Semantics
 
-- Extension is informational; ignore it if ENS is irrelevant to your flow.
-- Treat `info.payee`/`info.payer` as canonical ENS hints for the parties; use `records.text` /
-  `records.data` to decide which ENS records to inspect for context.
-- Clients MUST echo the server-provided `info.payee` verbatim, MUST NOT delete or rewrite those
-  fields, and MAY append `info.payer`.
-- Never treat ENS identities as settlement targets; `payTo`, scheme, and network rules still govern
-  payment routing.
-- ENS extension data is not proof of ownership or authorization.
+- The extension is informational. Implementations MAY ignore it when ENS metadata is not required.
+- When present, the extension MUST include `info.payee`. `info.payer` MAY be provided by the client when returning the payment payload.
+- `records.text` and `records.data` indicate which ENS records for the payee or payer identity may be resolved for additional metadata.
+- Clients MUST echo the server-provided `info.payee` verbatim, MUST NOT delete or rewrite those fields, and MAY append `info.payer`.
+- ENS names in this extension MUST NOT be used as settlement destinations; `payTo`, the selected scheme, and network semantics continue to govern routing.
+
+## Authorizing and verifying ENS identities
+
+The extension does not assert ownership. Applications that need to authorize a specific ENS identity SHOULD verify the name independently. Verification may be performed using:
+
+- [ENSIP-19](https://docs.ens.domains/ensip/19/) primary-name workflow: resolve the `payTo` address via reverse lookup, confirm the returned primary name matches the advertised `info.payee.ens`, and resolve that name forward to ensure it maps back to the same address. Only treat an ENS entry as authoritative once independent checks succeed.
 
 ## Runtime helpers
 
-See `core.ts` for the builder/validator helper. In most cases you only need:
-
-- `declareEnsExtension(info)` – builds the extension and validates it, returning `{ valid, errors, extension }`.
+The `declareEnsExtension` helper defined in `core.ts` constructs an extension object from an `EnsInfo` payload and validates it against the bundled JSON Schema. It returns `{ valid, errors, extension }`, allowing transmission to be conditioned on successful validation.. This entry point accepts both payee and payer metadata. Payee metadata is supplied in `PaymentRequired`. Payer metadata may be appended in `PaymentPayload`.
 
 ### Example
 
 ```ts
 import { declareEnsExtension, type EnsInfo } from "@x402/extensions/ens";
 
-const info: EnsInfo = {
+// Server-side declaration for PaymentRequired.
+const payeeInfo: EnsInfo = {
   payee: {
     ens: "merchant.eth",
-    message: "merchant identity with KYC hints",
+    message: "merchant identity referencing KYC attestations",
     records: {
       text: ["kyc-provider", "support-email"],
       data: ["kyc-credential", "aml-credential"],
@@ -136,12 +141,31 @@ const info: EnsInfo = {
   },
 };
 
-const result = declareEnsExtension(info);
-
-if (!result.valid || !result.extension) {
-  console.error("Invalid ENS extension:", result.errors);
-  throw new Error("Failed to build ENS extension");
+const payeeDeclaration = declareEnsExtension(payeeInfo);
+if (!payeeDeclaration.valid || !payeeDeclaration.extension) {
+  throw new Error("ENS extension validation failed");
 }
+const payeeExtension = payeeDeclaration.extension;
 
-const ensExtension = result.extension;
+// Client-side augmentation for PaymentPayload.
+const payerInfo: EnsInfo = {
+  payee: payeeExtension.info.payee,
+  payer: {
+    ens: "customer-agent.eth",
+    message: "customer agent identity referencing delegated attestations",
+    records: {
+      text: ["agent-context", "support-email"],
+      data: ["delegate-certificate"],
+    },
+  },
+};
+
+const payerDeclaration = declareEnsExtension(payerInfo);
+if (!payerDeclaration.valid || !payerDeclaration.extension) {
+  throw new Error("ENS extension validation failed");
+}
+const finalizedEnsExtension = payerDeclaration.extension;
+
+// Attach `payeeExtension` to PaymentRequired and `finalizedEnsExtension`
+// to PaymentPayload.extensions before transmission.
 ```

@@ -4,7 +4,7 @@ import express from "express";
 import { x402ResourceServer, HTTPFacilitatorClient, type RoutesConfig } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { paymentMiddleware } from "@x402/express";
-import { ENS, declareEnsExtension } from "@x402/extensions";
+import { ENS, declareEnsExtension, type EnsInfo } from "@x402/extensions";
 
 config();
 
@@ -20,6 +20,16 @@ export interface EnsDemoServerOptions {
 }
 
 const ensPayee = "merchant.eth";
+
+const declareEnsExtensions = (info: EnsInfo) => {
+  const declaration = declareEnsExtension(info);
+  if (!declaration.valid || !declaration.extension) {
+    const message = declaration.errors?.join(", ") || "Unknown ENS declaration error";
+    throw new Error(`Invalid ENS extension for server configuration: ${message}`);
+  }
+
+  return { [ENS]: declaration.extension };
+};
 
 export async function startEnsDemoServer(
   options: EnsDemoServerOptions = {},
@@ -40,25 +50,6 @@ export async function startEnsDemoServer(
     new ExactEvmScheme(),
   );
 
-  const ensDeclaration = declareEnsExtension({
-    payee: {
-      ens: ensPayee,
-      message: "Merchant identity with supporting KYC/KYB records",
-      records: {
-        text: ["kyc-provider", "kyc-scope", "support-email"],
-        data: ["kyc-credential", "aml-credential"],
-      },
-    },
-  });
-
-  if (!ensDeclaration.valid || !ensDeclaration.extension) {
-    throw new Error(
-      `Invalid ENS extension for server configuration: ${ensDeclaration.errors?.join(", ")}`,
-    );
-  }
-
-  const ensExtension = ensDeclaration.extension;
-
   const routes: RoutesConfig = {
     "GET /kyc": {
       accepts: {
@@ -70,7 +61,16 @@ export async function startEnsDemoServer(
       description: "KYC-protected account summary",
       mimeType: "application/json",
       extensions: {
-        [ENS]: ensExtension,
+        ...declareEnsExtensions({
+          payee: {
+            ens: ensPayee,
+            message: "Merchant identity with supporting KYC/KYB records",
+            records: {
+              text: ["kyc-provider", "kyc-scope", "support-email"],
+              data: ["kyc-credential", "aml-credential"],
+            },
+          },
+        }),
       },
     },
   };
