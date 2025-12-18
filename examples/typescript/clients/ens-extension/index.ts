@@ -3,10 +3,10 @@ import { privateKeyToAccount } from "viem/accounts";
 import { x402Client } from "@x402/core/client";
 import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
-import type { PaymentRequirements } from "@x402/core/types";
 import { ENS, validateEnsExtension, type EnsExtension } from "@x402/extensions";
 import type { EnsDemoServerHandle } from "./server";
 import { startEnsDemoServer } from "./server";
+import { PaymentRequirements } from "@x402/core/types";
 
 config();
 
@@ -24,7 +24,7 @@ let server: EnsDemoServerHandle | undefined;
 
 async function main(): Promise<void> {
   const payeeEns = "merchant.eth";
-  const payerEns = "customer-agent-name.eth";
+  const payerEns = "customer.eth";
 
   console.log("\nENS Identity Extension Example\n");
   console.log(`Using resource server URL: ${url}`);
@@ -42,10 +42,10 @@ async function main(): Promise<void> {
 
   const evmSigner = privateKeyToAccount(evmPrivateKey);
 
-  // Simple selector: choose the first available payment option
-  const selectPayment = (_version: number, requirements: PaymentRequirements[]) => requirements[0];
-
-  const client = new x402Client(selectPayment).register("eip155:*", new ExactEvmScheme(evmSigner));
+  const client = new x402Client((_version, requirements) => requirements[0]).register(
+    "eip155:*",
+    new ExactEvmScheme(evmSigner),
+  );
   console.log("x402 client ready\n");
 
   const payerIdentity = {
@@ -82,10 +82,10 @@ async function main(): Promise<void> {
       console.log(`   ${i + 1}. ${req.network} / ${req.scheme} - ${req.amount}`);
     });
 
-    const ensProvidedByServer = paymentRequired.extensions?.[ENS];
-    if (ensProvidedByServer && typeof ensProvidedByServer === "object") {
-      const { payee } = (ensProvidedByServer as EnsExtension).info;
-      console.log("\nServer provided ENS extension in PaymentRequired:");
+    const payeeEnsExtension = paymentRequired.extensions?.[ENS];
+    if (payeeEnsExtension && typeof payeeEnsExtension === "object") {
+      const { payee } = (payeeEnsExtension as EnsExtension).info;
+      console.log("\nServer provided payee ENS extension in PaymentRequired:");
       console.log("  payee:", payee);
     } else {
       console.log("\nNo ENS extension present in PaymentRequired (server may not advertise ENS).");

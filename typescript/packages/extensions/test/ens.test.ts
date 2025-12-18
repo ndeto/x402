@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { ENS, buildEnsExtension, declareEnsExtension, validateEnsExtension } from "../src/ens";
-import type { EnsInfo, EnsExtension } from "../src/ens";
+import type { EnsExtension, EnsInfo } from "../src/ens";
 
 describe("ENS Identity Extension", () => {
   it("should export the correct extension identifier", () => {
@@ -43,7 +43,7 @@ describe("ENS Identity Extension", () => {
         },
       },
       payer: {
-        ens: "customer-agent-name.eth",
+        ens: "customer.eth",
         message: "customer agent identity with verification records referenced below",
         records: {
           text: ["agent-context", "email", "description", "url"],
@@ -56,6 +56,7 @@ describe("ENS Identity Extension", () => {
 
     expect(extension.info).toEqual(info);
     expect(extension.schema.properties.payer).toBeDefined();
+    expect(extension.schema.properties.payee).toBeDefined();
     expect(extension.schema.properties.payer.required).toContain("ens");
   });
 
@@ -87,9 +88,9 @@ describe("ENS Identity Extension", () => {
       payee: { ens: 12345 },
     };
 
-    const extension = buildEnsExtension(info as unknown as EnsInfo);
+    const extension = buildEnsExtension(info as EnsInfo);
     const directValidation = validateEnsExtension(extension as EnsExtension);
-    const declared = declareEnsExtension(info as unknown as EnsInfo);
+    const declared = declareEnsExtension(info as EnsInfo);
 
     expect(directValidation.valid).toBe(false);
     expect(directValidation.errors).toBeDefined();

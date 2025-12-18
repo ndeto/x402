@@ -1,6 +1,6 @@
 # ENS Identity Extension
 
-The ENS extension carries optional metadata so x402 participants can attach ENS identities to a payment without changing settlement semantics. Any party that includes ENS identity MUST provide its ENS name and MAY include hints pointing to relevant ENS records. 
+This optional extension lets x402 participants attach ENS identities to a payment without changing settlement semantics. Any party that includes ENS identity MUST provide its ENS name and MAY include hints pointing to relevant ENS records. 
 
 ENS already acts as a multichain identity layer across Ethereum tooling—many apps and wallets rely on ENS names, text records, and per-network `addr` records to represent merchants, customers, and agents—so the `ens` extension simply reuses that surface. Clients or servers that do not care about ENS can ignore the extension entirely.
 
@@ -47,7 +47,7 @@ submitting the payment.
           }
         },
         "payer": {
-          "ens": "customer-agent-name.eth",
+          "ens": "customer.eth",
           "message": "customer agent identity with verification records referenced below",
           "records": {
             "text": ["agent-context", "email", "description", "url"],
@@ -123,9 +123,9 @@ See `core.ts` for the builder/validator helper. In most cases you only need:
 ### Example
 
 ```ts
-import { declareEnsExtension } from "@x402/extensions/ens";
+import { declareEnsExtension, type EnsInfo } from "@x402/extensions/ens";
 
-const result = declareEnsExtension({
+const info: EnsInfo = {
   payee: {
     ens: "merchant.eth",
     message: "merchant identity with KYC hints",
@@ -134,7 +134,9 @@ const result = declareEnsExtension({
       data: ["kyc-credential", "aml-credential"],
     },
   },
-});
+};
+
+const result = declareEnsExtension(info);
 
 if (!result.valid || !result.extension) {
   console.error("Invalid ENS extension:", result.errors);
